@@ -33,31 +33,23 @@ public class CustomRsqlVisitor<T> implements RSQLVisitor<Specification<T>, Root<
 
         switch (operator) {
             case "==" -> {
-                List<Predicate> predicates = new ArrayList<>();
                 String value = arguments.get(0);
                 String pattern = value.replace('*', '%');
                 return (root, query, builder) -> {
-                    String[] selectors = selector.split("\\.");
-                    if (selectors.length > 1) {
-                        Join<T, ?> join = root.join(selectors[0]);
-                        predicates.add(getChildPredicate(selectors, 1, join, value, builder, pattern));
-                        return builder.and(predicates.toArray(Predicate[]::new));
-                    } else {
-                        Path<?> propertyPath = root.get(selector);
-                        return AttributeParserManager.getAttributeParserManagerInstance().getEqualAttributeValue(
-                                value, propertyPath.getJavaType(),
-                                builder, propertyPath, pattern
-                        );
-                    }
+                    Path<?> propertyPath = getPath(selector, root);
+                    return AttributeParserManager.getAttributeParserManagerInstance().getEqualAttributeValue(
+                            value, propertyPath.getJavaType(),
+                            builder, propertyPath, pattern
+                    );
                 };
             }
             case "=in=" -> {
                 List<Object> values = new ArrayList<>(arguments);
-                return (root, query, builder) -> root.get(selector).in(values);
+                return (root, query, builder) -> getPath(selector, root).in(values);
             }
             case "!=" -> {
                 return (root, query, builder) -> {
-                    Path<?> propertyPath = root.get(selector);
+                    Path<?> propertyPath = getPath(selector, root);
                     return AttributeParserManager.getAttributeParserManagerInstance().getNotEqualAttributeValue(
                             propertyPath.getJavaType(), builder, propertyPath, arguments
                     );
@@ -65,7 +57,7 @@ public class CustomRsqlVisitor<T> implements RSQLVisitor<Specification<T>, Root<
             }
             case "=gt=" -> {
                 return (root, query, builder) -> {
-                    Path<?> propertyPath = root.get(selector);
+                    Path<?> propertyPath = getPath(selector, root);
                     return AttributeParserManager.getAttributeParserManagerInstance().getGreaterThanAttributeValue(
                             propertyPath.getJavaType(), builder, propertyPath, arguments
                     );
@@ -73,7 +65,7 @@ public class CustomRsqlVisitor<T> implements RSQLVisitor<Specification<T>, Root<
             }
             case "=ge=" -> {
                 return (root, query, builder) -> {
-                    Path<?> propertyPath = root.get(selector);
+                    Path<?> propertyPath = getPath(selector, root);
                     return AttributeParserManager.getAttributeParserManagerInstance().getGreaterThanOrEqualToAttributeValue(
                             propertyPath.getJavaType(), builder, propertyPath, arguments
                     );
@@ -81,7 +73,7 @@ public class CustomRsqlVisitor<T> implements RSQLVisitor<Specification<T>, Root<
             }
             case "=lt=" -> {
                 return (root, query, builder) -> {
-                    Path<?> propertyPath = root.get(selector);
+                    Path<?> propertyPath = getPath(selector, root);
                     return AttributeParserManager.getAttributeParserManagerInstance().getLessThanAttributeValue(
                             propertyPath.getJavaType(), builder, propertyPath, arguments
                     );
@@ -89,7 +81,7 @@ public class CustomRsqlVisitor<T> implements RSQLVisitor<Specification<T>, Root<
             }
             case "=le=" -> {
                 return (root, query, builder) -> {
-                    Path<?> propertyPath = root.get(selector);
+                    Path<?> propertyPath = getPath(selector, root);
                     return AttributeParserManager.getAttributeParserManagerInstance().getLessThanOrEqualToAttributeValue(
                             propertyPath.getJavaType(), builder, propertyPath, arguments
                     );
@@ -99,16 +91,22 @@ public class CustomRsqlVisitor<T> implements RSQLVisitor<Specification<T>, Root<
         return null;
     }
 
-    private Predicate getChildPredicate(String[] selectors, Integer index, Join<T, ?> join, String value, CriteriaBuilder builder, String pattern) {
+    private Path<?> getPath(String selector, Root<T> root) {
+        String[] selectors = selector.split("\\.");
+        if (selectors.length > 1) {
+            Join<T, ?> join = root.join(selectors[0]);
+            return getJoinedPath(selectors, 1, join);
+        } else {
+            return root.get(selector);
+        }
+    }
+
+    private Path<?> getJoinedPath(String[] selectors, Integer index, Join<T, ?> join) {
         if ((selectors.length - 1) > index) {
             Join<T, ?> newJoin = join.join(selectors[index]);
-            return getChildPredicate(selectors, index + 1, newJoin, value, builder, pattern);
+            return getJoinedPath(selectors, index + 1, newJoin);
         } else {
-            Path<?> propertyPath = join.get(selectors[index]);
-            return AttributeParserManager.getAttributeParserManagerInstance().getEqualAttributeValue(
-                    value, propertyPath.getJavaType(),
-                    builder, propertyPath, pattern
-            );
+            return join.get(selectors[index]);
         }
     }
 }
