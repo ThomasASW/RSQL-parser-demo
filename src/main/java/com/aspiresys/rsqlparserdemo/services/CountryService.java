@@ -6,7 +6,7 @@ import com.aspiresys.rsqlparserdemo.dto.StateDTO;
 import com.aspiresys.rsqlparserdemo.entity.Country;
 import com.aspiresys.rsqlparserdemo.entity.ZipCode;
 import com.aspiresys.rsqlparserdemo.repository.CountryRepository;
-import com.aspiresys.rsqlparserdemo.utils.CustomRsqlVisitor;
+import com.aspiresys.rsqlparserdemo.utils.CustomRsqlVisitorV2;
 import cz.jirutka.rsql.parser.RSQLParser;
 import cz.jirutka.rsql.parser.ast.Node;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +25,7 @@ public class CountryService {
         Specification<Country> specification = null;
         if (query != null && !query.isBlank()) {
             Node root = new RSQLParser().parse(query);
-            specification = root.accept(new CustomRsqlVisitor<>());
+            specification = root.accept(new CustomRsqlVisitorV2<>());
         }
         List<Country> countries = countryRepository.findAll(specification);
         return countries.stream().map(country -> {
